@@ -1,8 +1,12 @@
-<!doctype html>
+<!DOCTYPE html>
 <html>
   <head>
     <title>Webauthn testbench</title>
-    <style>hr { margin: 3em 0; }</style>
+    <style>
+      hr {
+        margin: 3em 0;
+      }
+    </style>
   </head>
   <body>
     <h1><code>DLABS Webauthn Testbench</code></h1>
@@ -17,7 +21,7 @@
       <textarea id="res-create-auth" rows="3" cols="80"></textarea>
     </div>
 
-    <hr/>
+    <hr />
     <h3>Sign</h3>
     <div>
       <h5>ClientDataHash / hashOfCapability</h5>
@@ -34,107 +38,126 @@
       <h5>Signature</h5>
       <textarea id="res-sign-sig" rows="5" cols="80"></textarea>
     </div>
-    <hr/>
+    <hr />
 
     <h3>Verify</h3>
     <div><code>TODO</code></div>
-    <hr/>
+    <hr />
     <div>
       <h3>Errors</h3>
       <textarea id="res-err" rows="10" cols="80"></textarea>
     </div>
 
     <script type="text/javascript">
-      const RPID = window.location.hostname || 'xor.self'
-      let createRes = null
-      document.getElementById('btn-create')
-        .addEventListener('click', create)
-      document.getElementById('btn-sign')
-        .addEventListener('click', () => sign(false))
-      document.getElementById('btn-sign-disco')
-        .addEventListener('click', () => sign(true))
+      const RPID = window.location.hostname || "xor.self";
+      let createRes = null;
+      document.getElementById("btn-create").addEventListener("click", create);
+      document
+        .getElementById("btn-sign")
+        .addEventListener("click", () => sign(false));
+      document
+        .getElementById("btn-sign-disco")
+        .addEventListener("click", () => sign(true));
 
-      function random (n) {
-        const b = new Uint8Array(n)
-        crypto.getRandomValues(b)
-        return b
+      function random(n) {
+        const b = new Uint8Array(n);
+        crypto.getRandomValues(b);
+        return b;
       }
       function setError(err) {
-        document.getElementById('res-err').value = 'Error:' + err.toString()
+        document.getElementById("res-err").value = "Error:" + err.toString();
       }
 
-      async function create () {
-        console.log('CreateKey' , RPID)
+      async function create() {
+        console.log("CreateKey", RPID);
         try {
           const cred = await navigator.credentials.create({
             publicKey: {
               challenge: random(32),
-              rp: { id: RPID, name: 'Xorcery Inc.' },
+              rp: { id: RPID, name: "Xorcery Inc." },
               user: {
                 id: random(32),
-                name: 'ceramicuser',
-                displayName: 'Ceramic User'
+                name: "ceramicuser",
+                displayName: "Ceramic User",
               },
-              pubKeyCredParams: [ {type: 'public-key', alg: -7} ]
-            }
-          })
+              pubKeyCredParams: [
+                { type: "public-key", alg: -7 }, // ECDSA with SHA-256
+              ],
 
-          window.createRes = cred
-          console.log('create()', cred)
-          document.getElementById('res-create').value = cred.id
-          document.getElementById('res-create-pk').value = typeof cred.response.getPublicKey === 'function'
-            ? u2b(cred.response.getPublicKey())
-            : 'response.getPublicKey() not available'
-          document.getElementById('res-create-auth').value = typeof cred.response.getAuthenticatorData === 'function'
-            ? u2b(cred.response.getAuthenticatorData())
-            : 'response.getAuthenticatorData() not available'
+              authenticatorSelection: {
+                residentKey: "required",
+                userVerification: "required",
+                requireResidentKey: true,
+              },
+            },
+          });
+
+          window.createRes = cred;
+          console.log("create()", cred);
+          document.getElementById("res-create").value = cred.id;
+          document.getElementById("res-create-pk").value =
+            typeof cred.response.getPublicKey === "function"
+              ? u2b(cred.response.getPublicKey())
+              : "response.getPublicKey() not available";
+          document.getElementById("res-create-auth").value =
+            typeof cred.response.getAuthenticatorData === "function"
+              ? u2b(cred.response.getAuthenticatorData())
+              : "response.getAuthenticatorData() not available";
         } catch (err) {
-          console.error('create(FAILED)', err)
-          setError(err)
+          console.error("create(FAILED)", err);
+          setError(err);
         }
         // document.getElementById('res-pk').value = cred.response.
       }
 
-      async function sign (discoverable = false) {
+      async function sign(discoverable = false) {
         try {
-          const textPayload = document.getElementById('text-hash')
-          textPayload.value = "uReCcWHtXtEiyOv4Kk39uL_Jkgp1Z6bBmGfViVeBSHI"
-          const hashOfCapability = fb64(textPayload.value)
-          const allowCredentials = []
+          const textPayload = document.getElementById("text-hash");
+          textPayload.value = "uReCcWHtXtEiyOv4Kk39uL_Jkgp1Z6bBmGfViVeBSHI";
+          const hashOfCapability = fb64(textPayload.value);
+          const allowCredentials = [];
 
           if (!discoverable) {
-            const id = fb64(document.getElementById('res-create').value)
-            allowCredentials.push({ type: 'public-key', id })
+            const id = fb64(document.getElementById("res-create").value);
+            allowCredentials.push({ type: "public-key", id });
           }
 
           const res = await navigator.credentials.get({
             publicKey: {
               rpId: RPID,
               challenge: hashOfCapability, // Uint8Array(32)
-              allowCredentials,            // userVerification: 'required',
+              allowCredentials, // userVerification: 'required',
               timeout: 240000,
-            }
-          })
-          console.log(`sign(${discoverable})`, res)
-          window.signRes = res
-          document.getElementById('res-sign-auth').value = u2b(res.response.authenticatorData)
-          document.getElementById('res-sign-sig').value = u2b(res.response.signature)
+            },
+          });
+          console.log(`sign(${discoverable})`, res);
+          window.signRes = res;
+          document.getElementById("res-sign-auth").value = u2b(
+            res.response.authenticatorData
+          );
+          document.getElementById("res-sign-sig").value = u2b(
+            res.response.signature
+          );
         } catch (err) {
-          console.error('sign(FAILED)', err)
-          setError(err)
+          console.error("sign(FAILED)", err);
+          setError(err);
         }
       }
 
-      function fb64(x) { // Base64 to Uint8Array
-        return Uint8Array.from(atob(x.replace(/-/g, '+').replace(/_/g, '/')), c => c.charCodeAt(0))
+      function fb64(x) {
+        // Base64 to Uint8Array
+        return Uint8Array.from(
+          atob(x.replace(/-/g, "+").replace(/_/g, "/")),
+          c => c.charCodeAt(0)
+        );
       }
 
-      function u2b (x) { // Uint8Array to Base64url
-        if (typeof x === 'string') return x // do nothing
-        if (x instanceof ArrayBuffer) x = new Uint8Array(x)
-        return btoa(x).replace(/\+/g, '-').replace(/\//g, '_')
+      function u2b(x) {
+        // Uint8Array to Base64url
+        if (typeof x === "string") return x; // do nothing
+        if (x instanceof ArrayBuffer) x = new Uint8Array(x);
+        return btoa(x).replace(/\+/g, "-").replace(/\//g, "_");
       }
-
     </script>
   </body>
 </html>
