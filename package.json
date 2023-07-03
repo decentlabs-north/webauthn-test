@@ -8,7 +8,10 @@
     "surge": "^0.23.1"
   },
   "scripts": {
+    "dev": "sirv --dev -s index.html",
     "surge": "mkdir -p out && cat index.html > out/index.html && surge ./out/ heavy-mint.surge.sh"
+  },
+  "devDependencies": {
+    "sirv-cli": "^2.0.2"
   }
-
 }

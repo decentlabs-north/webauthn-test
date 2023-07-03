@@ -45,7 +45,7 @@
     </div>
 
     <script type="text/javascript">
-      const RPID = window.location.host || 'xor.self'
+      const RPID = window.location.hostname || 'xor.self'
       let createRes = null
       document.getElementById('btn-create')
         .addEventListener('click', create)
@@ -64,6 +64,7 @@
       }
 
       async function create () {
+        console.log('CreateKey' , RPID)
         try {
           const cred = await navigator.credentials.create({
             publicKey: {
@@ -77,6 +78,7 @@
               pubKeyCredParams: [ {type: 'public-key', alg: -7} ]
             }
           })
+
           window.createRes = cred
           console.log('create()', cred)
           document.getElementById('res-create').value = cred.id
@@ -99,10 +101,12 @@
           textPayload.value = "uReCcWHtXtEiyOv4Kk39uL_Jkgp1Z6bBmGfViVeBSHI"
           const hashOfCapability = fb64(textPayload.value)
           const allowCredentials = []
+
           if (!discoverable) {
             const id = fb64(document.getElementById('res-create').value)
             allowCredentials.push({ type: 'public-key', id })
           }
+
           const res = await navigator.credentials.get({
             publicKey: {
               rpId: RPID,
