@@ -24,7 +24,7 @@
     <hr />
     <h3>Sign</h3>
     <div>
-      <h5>ClientDataHash / hashOfCapability</h5>
+      <h5><code>hashOfCapability</code></h5>
       <textarea id="text-hash" rows="5" cols="80"></textarea>
     </div>
     <button id="btn-sign">Sign using Key-Identifier</button>
@@ -41,7 +41,10 @@
     <hr />
 
     <h3>Verify</h3>
-    <div><code>TODO</code></div>
+    <div><code>TODO</code> verify(Signature + AuthenticatorData + hashOfCapability) => true | false</div>
+    <button id="btn-verify">Verify</button>
+      Result: <br/>
+      <textarea id="res-verify" rows="5" cols="80">false (hårdkodat)</textarea>
     <hr />
     <div>
       <h3>Errors</h3>
@@ -83,7 +86,6 @@
               pubKeyCredParams: [
                 { type: "public-key", alg: -7 }, // ECDSA with SHA-256
               ],
-
               authenticatorSelection: {
                 residentKey: "required",
                 userVerification: "required",
