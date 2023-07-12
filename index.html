@@ -1,78 +1,97 @@
 <!DOCTYPE html>
 <html>
   <head>
-    <title>Webauthn testbench</title>
+    <title>DLABS Webauthn testbench</title>
     <style>
+      body { font-family: monospace; }
       hr {
         margin: 3em 0;
       }
     </style>
   </head>
   <body>
-    <h1><code>DLABS Webauthn Testbench</code></h1>
+    <h1><code>Webauthn Testbench v1.3</code></h1>
+    <p><a href="https://github.com/decentlabs-north/webauthn-test">Source Code</a></p>
     <h3>Create</h3>
-    <button id="btn-create">Create Key</button>
+    <button id="btn-create">Create Credential</button>
+    <h6>Outputs</h6>
     <div>
-      <h5>KeyIdentifier</h5>
+      <h5>CredentialIdentifier</h5>
       <textarea id="res-create" rows="3" cols="80"></textarea>
-      <h5>PublicKey</h5>
-      <textarea id="res-create-pk" rows="3" cols="80"></textarea>
-      <h5>AuthenticatorData</h5>
-      <textarea id="res-create-auth" rows="3" cols="80"></textarea>
+      <h5>DER PublicKey</h5>
+      <textarea id="res-create-pk" rows="3" cols="80" disabled></textarea>
+      <h5>AuthenticatorData 1</h5>
+      <textarea id="res-create-auth" rows="3" cols="80" disabled></textarea>
+      <h5>Attestation Object</h5>
+      <textarea id="res-create-att" rows="3" cols="80" disabled></textarea>
     </div>
-
     <hr />
     <h3>Sign</h3>
+    <h6>Inputs</h6>
     <div>
-      <h5><code>hashOfCapability</code></h5>
+      <h5><code></code></h5>
       <textarea id="text-hash" rows="5" cols="80"></textarea>
     </div>
-    <button id="btn-sign">Sign using Key-Identifier</button>
+    <button id="btn-sign">Sign using CredentialIdentifier</button>
     <button id="btn-sign-disco">Sign Discoverable</button>
-
+    <h6>Outputs</h6>
     <div>
-      <h5>AuthenticatorData</h5>
-      <textarea id="res-sign-auth" rows="3" cols="80"></textarea>
+      <h5>AuthenticatorData 2</h5>
+      <textarea id="res-sign-auth" rows="3" cols="80" disabled></textarea>
+    <div>
+      <h5>clientDataJSON</h5>
+      <textarea id="res-sign-client" rows="3" cols="80" disabled></textarea>
     </div>
     <div>
       <h5>Signature</h5>
-      <textarea id="res-sign-sig" rows="5" cols="80"></textarea>
+      <textarea id="res-sign-sig" rows="5" cols="80" disabled></textarea>
     </div>
     <hr />
-
-    <h3>Verify</h3>
-    <div><code>TODO</code> verify(Signature + AuthenticatorData + hashOfCapability) => true | false</div>
-    <button id="btn-verify">Verify</button>
-      Result: <br/>
-      <textarea id="res-verify" rows="5" cols="80">false (hårdkodat)</textarea>
+    <h3><a href="https://w3c.github.io/webauthn/#prf-extension">prf-extension</a></h3>
+    <div>
+      <button id="btn-prf-create">Create</button> <button id="btn-prf-get">Get</button>
+    </div>
+    <h6>Outputs</h6>
+    <div>
+      <h5>Seed</h5>
+      <textarea id="res-prf-value" rows="5" cols="80" disabled></textarea>
+      <h5>Secret</h5>
+      <textarea id="res-prf-sk" rows="5" cols="80" disabled></textarea>
+      <h5>Public</h5>
+      <textarea id="res-prf-pk" rows="5" cols="80" disabled></textarea>
+    </div>
     <hr />
     <div>
       <h3>Errors</h3>
-      <textarea id="res-err" rows="10" cols="80"></textarea>
+      <textarea id="res-err" rows="10" cols="80" disabled></textarea>
     </div>
 
     <script type="text/javascript">
-      const RPID = window.location.hostname || "xor.self";
-      let createRes = null;
-      document.getElementById("btn-create").addEventListener("click", create);
+      const RPID = window.location.hostname || "xor.self"
+      let createRes = null
+      document.getElementById("btn-create").addEventListener("click", create)
       document
         .getElementById("btn-sign")
-        .addEventListener("click", () => sign(false));
+        .addEventListener("click", () => sign(false))
       document
         .getElementById("btn-sign-disco")
-        .addEventListener("click", () => sign(true));
+        .addEventListener("click", () => sign(true))
+      document.getElementById('btn-prf-create')
+        .addEventListener('click', () => testPRF(true))
+      document.getElementById('btn-prf-get')
+        .addEventListener('click', () => testPRF(false))
 
       function random(n) {
-        const b = new Uint8Array(n);
-        crypto.getRandomValues(b);
-        return b;
+        const b = new Uint8Array(n)
+        crypto.getRandomValues(b)
+        return b
       }
       function setError(err) {
-        document.getElementById("res-err").value = "Error:" + err.toString();
+        document.getElementById("res-err").value = "Error:" + err.toString()
       }
 
       async function create() {
-        console.log("CreateKey", RPID);
+        console.log("CreateKey", RPID)
         try {
           const cred = await navigator.credentials.create({
             publicKey: {
@@ -92,74 +111,114 @@
                 requireResidentKey: true,
               },
             },
-          });
+          })
 
-          window.createRes = cred;
-          console.log("create()", cred);
-          document.getElementById("res-create").value = cred.id;
+          window.createRes = cred
+          console.log("create()", cred)
+          document.getElementById("res-create").value = cred.id
           document.getElementById("res-create-pk").value =
             typeof cred.response.getPublicKey === "function"
-              ? u2b(cred.response.getPublicKey())
-              : "response.getPublicKey() not available";
-          document.getElementById("res-create-auth").value =
-            typeof cred.response.getAuthenticatorData === "function"
-              ? u2b(cred.response.getAuthenticatorData())
-              : "response.getAuthenticatorData() not available";
+              ? toHex(cred.response.getPublicKey())
+              : "response.getPublicKey() not available"
+
+          document.getElementById("res-create-att").value = toHex(cred.response.attestationObject)
+          document.getElementById("res-create-auth").value = 
+            typeof cred.response.getAuthenticatorData === 'function'
+              ? toHex(cred.response.getAuthenticatorData())
+              : "response.getAuthenticatorData() not available"
         } catch (err) {
-          console.error("create(FAILED)", err);
-          setError(err);
+          console.error("create(FAILED)", err)
+          setError(err)
         }
         // document.getElementById('res-pk').value = cred.response.
       }
 
       async function sign(discoverable = false) {
         try {
-          const textPayload = document.getElementById("text-hash");
-          textPayload.value = "uReCcWHtXtEiyOv4Kk39uL_Jkgp1Z6bBmGfViVeBSHI";
-          const hashOfCapability = fb64(textPayload.value);
-          const allowCredentials = [];
+          const textPayload = document.getElementById("text-hash")
+          if (!textPayload.value.length) {
+            const dummy32 = '000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f'
+            textPayload.value =  dummy32
+          }
+          const hashOfCapability = fromHex(textPayload.value)
+          const allowCredentials = []
 
           if (!discoverable) {
-            const id = fb64(document.getElementById("res-create").value);
-            allowCredentials.push({ type: "public-key", id });
+            const id = fromHex(document.getElementById("res-create").value)
+            allowCredentials.push({ type: "public-key", id })
           }
 
           const res = await navigator.credentials.get({
             publicKey: {
               rpId: RPID,
               challenge: hashOfCapability, // Uint8Array(32)
-              allowCredentials, // userVerification: 'required',
+              allowCredentials,
               timeout: 240000,
             },
-          });
-          console.log(`sign(${discoverable})`, res);
-          window.signRes = res;
-          document.getElementById("res-sign-auth").value = u2b(
-            res.response.authenticatorData
-          );
-          document.getElementById("res-sign-sig").value = u2b(
+          })
+          console.log(`sign(${discoverable})`, res)
+          window.signRes = res
+          document.getElementById("res-sign-client").value = toHex(
+            res.response.clientDataJSON
+          )
+          document.getElementById("res-sign-sig").value = toHex(
             res.response.signature
-          );
+          )
         } catch (err) {
-          console.error("sign(FAILED)", err);
-          setError(err);
+          console.error("sign(FAILED)", err)
+          setError(err)
         }
       }
 
-      function fb64(x) {
-        // Base64 to Uint8Array
-        return Uint8Array.from(
-          atob(x.replace(/-/g, "+").replace(/_/g, "/")),
-          c => c.charCodeAt(0)
-        );
+      async function testPRF (create = true) {
+        try {
+          const res = await navigator.credentials.get({
+            publicKey: {
+              challenge: s2b(RPID),
+              allowCredentials: [], // Use discoverable
+              userVerification: 'required',
+              rpId: RPID,
+              extension: {
+                prf: {
+                  eval: {
+                    first: s2b(RPID + '-sign'),
+                    second: s2b(RPID + '-box') // Optional
+                  }
+                }
+              }
+            }
+          })
+          console.log(`TestPRF(${create}):`, res)
+          window.prfRes = res
+        } catch (err) {
+          console.error("ext-prf(FAILED)", err)
+          setError(err)
+        }
       }
 
-      function u2b(x) {
-        // Uint8Array to Base64url
-        if (typeof x === "string") return x; // do nothing
-        if (x instanceof ArrayBuffer) x = new Uint8Array(x);
-        return btoa(x).replace(/\+/g, "-").replace(/\//g, "_");
-      }
+      // Hex/Bin converters
+      const b2hLUT = Array.from(new Array(256)).map((_, i) => i.toString(16).padStart(2, '0'))
+      const h2bLUT = Array.from(new Array(256)).map((_, i) => [i.toString(16).padStart(2, '0'), i]).reduce((m, n) => { m[n[0]] = n[1]; return m }, {})
+      function toHex (arr) {
+         if (arr instanceof ArrayBuffer) arr = new Uint8Array(arr)
+         let buf = ''
+         for (let i = 0; i < arr.length; i++) buf += b2hLUT[arr[i]]
+         return buf
+       }
+       function fromHex(str) {
+         const b = new Uint8Array(str.length >> 1)
+         for (let i = 0; i < str.length >> 1; i++) b[i] = h2bLUT[str.slice(i * 2, i * 2 + 2)]
+         return b
+       }
+
+       // Utf8/Bin converters
+       function s2b (str) {
+         return new TextEncoder('utf8').encode(str)
+       }
+       function b2s (buffer) {
+         return new TextDecoder('utf8').decode(buffer)
+       }
+
     </script>
   </body>
 </html>
