@@ -67,7 +67,12 @@
     </div>
 
     <script type="text/javascript">
-      const RPID = window.location.hostname || "xor.self"
+      const RPID = window.location.hostname
+      // Ensure https unless localhost / fix surge annoyance on mobile
+      if (RPID !== 'localhost' && window.location.protocol === 'http:') {
+        window.localhost = window.location.toString().replace('http:', 'https:')
+      }
+
       let createRes = null
       document.getElementById("btn-create").addEventListener("click", create)
       document
