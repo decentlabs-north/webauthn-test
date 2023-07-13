@@ -119,7 +119,7 @@
           document.getElementById("res-create").value = cred.id
           document.getElementById("res-create-pk").value =
             typeof cred.response.getPublicKey === "function"
-              ? toHex(cred.response.getPublicKey())
+              ? toHex(cred.response.getPublicKey()) // TODO: Returns undef on android
               : "response.getPublicKey() not available"
 
           document.getElementById("res-create-att").value = toHex(cred.response.attestationObject)
