@@ -81,13 +81,9 @@
       document.getElementById('btn-prf-get')
         .addEventListener('click', () => testPRF(false))
 
-      function random(n) {
-        const b = new Uint8Array(n)
-        crypto.getRandomValues(b)
-        return b
-      }
       function setError(err) {
-        document.getElementById("res-err").value = "Error:" + err.toString()
+        document.getElementById("res-err").value = err.toString() + '\n' + err.stack
+        scrollTo(0, document.body.getBoundingClientRect().height)
       }
 
       async function create() {
@@ -100,7 +96,7 @@
               user: {
                 id: random(32),
                 name: "ceramicuser",
-                displayName: "Ceramic User",
+                displayName: "Ceramic User"
               },
               pubKeyCredParams: [
                 { type: "public-key", alg: -7 }, // ECDSA with SHA-256
@@ -109,8 +105,8 @@
                 residentKey: "required",
                 userVerification: "required",
                 requireResidentKey: true,
-              },
-            },
+              }
+            }
           })
 
           window.createRes = cred
@@ -122,10 +118,10 @@
               : "response.getPublicKey() not available"
 
           document.getElementById("res-create-att").value = toHex(cred.response.attestationObject)
-          document.getElementById("res-create-auth").value = 
+          document.getElementById("res-create-auth").value =
             typeof cred.response.getAuthenticatorData === 'function'
               ? toHex(cred.response.getAuthenticatorData())
-              : "response.getAuthenticatorData() not available"
+              : toHex(cred.response.authenticatorData)
         } catch (err) {
           console.error("create(FAILED)", err)
           setError(err)
@@ -164,6 +160,10 @@
           document.getElementById("res-sign-sig").value = toHex(
             res.response.signature
           )
+          document.getElementById("res-sign-auth").value =
+            typeof res.response.getAuthenticatorData === 'function'
+              ? toHex(res.response.getAuthenticatorData())
+              : toHex(res.response.authenticatorData)
         } catch (err) {
           console.error("sign(FAILED)", err)
           setError(err)
@@ -172,24 +172,52 @@
 
       async function testPRF (create = true) {
         try {
-          const res = await navigator.credentials.get({
+          const clientData = {
             publicKey: {
-              challenge: s2b(RPID),
-              allowCredentials: [], // Use discoverable
-              userVerification: 'required',
-              rpId: RPID,
-              extension: {
+              challenge: s2b(RPID), // not random
+              extensions: {
                 prf: {
                   eval: {
-                    first: s2b(RPID + '-sign'),
-                    second: s2b(RPID + '-box') // Optional
+                    first: await hash(RPID + '-sign'),
+                    second: await hash(RPID + '-box') // Optional
                   }
                 }
               }
             }
-          })
-          console.log(`TestPRF(${create}):`, res)
+          }
+          let res
+          if (create) {
+            Object.assign(clientData.publicKey, {
+              rp: { id: RPID, name: "Xorcery Inc." },
+              user: {
+                id: await hash('prf-demo'),
+                name: 'prf-demo',
+                displayName: 'WebauthnPRF Test'
+              },
+              pubKeyCredParams: [
+                { type: "public-key", alg: -7 }, // ECDSA with SHA-256
+              ],
+              attestation: 'none', // ??? why?
+              authenticatorSelection: {
+                residentKey: 'required',
+                userVerification: 'required',
+                requireResidentKey: true, // Obsolete, superseeded by 'residentKey'
+              }
+            })
+            console.log(clientData)
+            res = await navigator.credentials.create(clientData)
+          } else {
+            clientData.publicKey.rpId = RPID
+            clientData.publicKey.userVerification = 'required' // TODO: remove, this is the default?
+            clientData.publicKey.allowCredentials = [] // Use discoverable
+            res = await navigator.credentials.get(clientData)
+          }
           window.prfRes = res
+          const extRes = res.getClientExtensionResults()
+          console.log(`TestPRF(${create}):`, clientData, res, extRes)
+
+          document.getElementById('res-prf-value').value = JSON.stringify(extRes, null, 2)
+          if (!extRes.prf?.results) throw new Error('PRF-extension not supported')
         } catch (err) {
           console.error("ext-prf(FAILED)", err)
           setError(err)
@@ -200,25 +228,35 @@
       const b2hLUT = Array.from(new Array(256)).map((_, i) => i.toString(16).padStart(2, '0'))
       const h2bLUT = Array.from(new Array(256)).map((_, i) => [i.toString(16).padStart(2, '0'), i]).reduce((m, n) => { m[n[0]] = n[1]; return m }, {})
       function toHex (arr) {
-         if (arr instanceof ArrayBuffer) arr = new Uint8Array(arr)
-         let buf = ''
-         for (let i = 0; i < arr.length; i++) buf += b2hLUT[arr[i]]
-         return buf
-       }
-       function fromHex(str) {
-         const b = new Uint8Array(str.length >> 1)
-         for (let i = 0; i < str.length >> 1; i++) b[i] = h2bLUT[str.slice(i * 2, i * 2 + 2)]
-         return b
-       }
+        if (arr instanceof ArrayBuffer) arr = new Uint8Array(arr)
+        let buf = ''
+        for (let i = 0; i < arr.length; i++) buf += b2hLUT[arr[i]]
+        return buf
+      }
+      function fromHex(str) {
+        const b = new Uint8Array(str.length >> 1)
+        for (let i = 0; i < str.length >> 1; i++) b[i] = h2bLUT[str.slice(i * 2, i * 2 + 2)]
+        return b
+      }
 
-       // Utf8/Bin converters
-       function s2b (str) {
-         return new TextEncoder('utf8').encode(str)
-       }
-       function b2s (buffer) {
-         return new TextDecoder('utf8').decode(buffer)
-       }
+      // Utf8/Bin converters
+      function s2b (str) {
+        return new TextEncoder('utf8').encode(str)
+      }
+      function b2s (buffer) {
+        return new TextDecoder('utf8').decode(buffer)
+      }
 
+      // SHA256
+      async function hash (m) {
+        if (typeof m === 'string') m = s2b(m)
+        return new Uint8Array(await crypto.subtle.digest('SHA-256', m))
+      }
+      function random(n) {
+        const b = new Uint8Array(n)
+        crypto.getRandomValues(b)
+        return b
+      }
     </script>
   </body>
 </html>
