@@ -86,12 +86,12 @@
       document.getElementById('btn-prf-get')
         .addEventListener('click', () => testPRF(false))
 
-      function setError(err) {
+      function setError (err) {
         document.getElementById("res-err").value = err.toString() + '\n' + err.stack
         scrollTo(0, document.body.getBoundingClientRect().height)
       }
 
-      async function create() {
+      async function create () {
         console.log("CreateKey", RPID)
         try {
           const cred = await navigator.credentials.create({
@@ -181,6 +181,8 @@
             publicKey: {
               challenge: s2b(RPID), // not random
               extensions: {
+                credProps: true, // ---
+                largeBlob: { support: 'preferred' }, // ---
                 prf: {
                   eval: {
                     first: await hash(RPID + '-sign'),
@@ -262,6 +264,7 @@
         crypto.getRandomValues(b)
         return b
       }
+
     </script>
   </body>
 </html>
