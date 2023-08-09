@@ -9,7 +9,10 @@
   },
   "scripts": {
     "dev": "sirv --dev -s index.html",
-    "surge": "mkdir -p out && cat index.html > out/index.html && surge ./out/ heavy-mint.surge.sh"
+    "surge": "surge ./out/ heavy-mint.surge.sh",
+    "dev": "esbuild --bundle index.js --format=esm --outfile=out/index.b.js --servedir=out/",
+    "build": "esbuild --bundle index.js --format=esm --outfile=out/index.b.js",
+    "lint": "standard --fix"
   },
   "devDependencies": {
     "sirv-cli": "^2.0.2"
