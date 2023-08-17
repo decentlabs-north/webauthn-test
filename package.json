@@ -4,17 +4,17 @@
   "main": "index.js",
   "license": "MIT",
   "dependencies": {
-    "esbuild": "^0.18.4",
-    "surge": "^0.23.1"
+    "@noble/curves": "^1.1.0",
+    "cborg": "^2.0.3"
   },
   "scripts": {
-    "dev": "sirv --dev -s index.html",
     "surge": "surge ./out/ heavy-mint.surge.sh",
     "dev": "esbuild --bundle index.js --format=esm --outfile=out/index.b.js --servedir=out/",
     "build": "esbuild --bundle index.js --format=esm --outfile=out/index.b.js",
     "lint": "standard --fix"
   },
   "devDependencies": {
-    "sirv-cli": "^2.0.2"
+    "esbuild": "^0.18.4",
+    "surge": "^0.23.1"
   }
 }
