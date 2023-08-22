@@ -151,6 +151,10 @@ async function sign (discoverable = false) {
 
 function setDiag (props) {
   window.diag ||= {}
+  if (props.error) {
+    const { message, stack } = props.error
+    props.error = { message, stack }
+  }
   for (const key in props) {
     window.diag[key] ||= {}
     Object.assign(window.diag[key], props[key])
