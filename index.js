@@ -34,8 +34,8 @@ async function create () {
         rp: { id: RPID, name: "Xorcery Inc." },
         user: {
           id: random(32),
-          name: document.getElementById('create-alias').value || 'ceramicuser',
-          displayName: "Ceramic User"
+          name: document.getElementById('create-alias').value || 'testbench',
+          displayName: "testbench"
         },
         pubKeyCredParams: [
           { type: "public-key", alg: -7 }, // ECDSA with SHA-256
@@ -59,9 +59,11 @@ async function create () {
     */
 
     document.getElementById("res-create-att").value = toHex(cred.response.attestationObject)
+    debugger
     const authData = typeof cred.response.getAuthenticatorData === 'function'
       ? cred.response.getAuthenticatorData()
-      : cred.response.authenticatorData
+      : cred.response.authenticatorData // Does not exist on FF; (use CBOR.decode(response.attestationObject))
+
     document.getElementById("res-create-auth").value = toHex(authData)
     const { publicKey } = decodeAuthenticatorData(authData) // TODO: hex not base64
     document.getElementById("res-create-pk").value = toHex(publicKey)
@@ -133,6 +135,7 @@ async function sign(discoverable = false) {
   }
 }
 
+// TODO: prob deprecate/move away
 async function testPRF (create = true) {
   try {
     const clientData = {
