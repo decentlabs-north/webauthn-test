@@ -1,7 +1,7 @@
 /** This is a testbench with hacky but functional code */
 // import { decode } from 'cborg'
 import { p256 } from '@noble/curves/p256'
-import 'https://unpkg.com/ua-parser-js@1.0.35/src/ua-parser.js'
+import * as UAParser from 'https://unpkg.com/ua-parser-js@1.0.35/src/ua-parser.js'
 const RPID = window.location.hostname
 // Ensure https unless localhost / fix surge annoyance on mobile
 if (RPID !== 'localhost' && window.location.protocol === 'http:') {
@@ -51,18 +51,12 @@ async function create () {
     window.createRes = cred
     console.log('create()', cred)
     document.getElementById('res-create').value = toHex(cred.rawId)
-    /* Skipping DER-encoded public-key
-    document.getElementById("res-create-pk").value =
-      typeof cred.response.getPublicKey === "function"
-      ? toHex(cred.response.getPublicKey()) // TODO: Returns undef on android
-      : "response.getPublicKey() not available"
-    */
-
     document.getElementById('res-create-att').value = toHex(cred.response.attestationObject)
-    debugger
+
+    // BUG? response.authenticatorData, does not exist on FF? (fallback CBOR.decode(response.attestationObject))
     const authData = typeof cred.response.getAuthenticatorData === 'function'
       ? cred.response.getAuthenticatorData()
-      : cred.response.authenticatorData // Does not exist on FF; (use CBOR.decode(response.attestationObject))
+      : cred.response.authenticatorData
 
     document.getElementById('res-create-auth').value = toHex(authData)
     const { publicKey } = decodeAuthenticatorData(authData) // TODO: hex not base64
@@ -127,7 +121,7 @@ async function sign (discoverable = false) {
           ${toHex(publicKey)}
     `
     window.diag ||= {}
-    window.diag.ua = new UAParser().getResult()
+    // window.diag.ua = new UAParser().getResult()
     window.diag.recovered = recovered // TODO: to hex
   } catch (err) {
     console.error('sign(FAILED)', err)
@@ -246,7 +240,7 @@ function recoverPublicKey (signature, authenticatorData, clientDataJSON, credent
   const ml0 = nOverlap(pk0.slice(1), credentialId)
   const ml1 = nOverlap(pk1.slice(1), credentialId)
   if (ml0 === ml1) throw new Error('Key from CID Recovery Failed')
-  const publicKey = ml0 < ml1 ? pk0 : pk1
+  const publicKey = ml1 < ml0 ? pk0 : pk1
   return { pk0, pk1, ml0, ml1, publicKey }
 }
 
