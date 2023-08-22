@@ -10,7 +10,7 @@
     </style>
   </head>
   <body>
-    <h1><code>Webauthn Testbench v1.4</code></h1>
+    <h1><code>Webauthn Testbench v1.4.3</code></h1>
     <p><a href="https://github.com/decentlabs-north/webauthn-test">Source Code</a></p>
     <h3>Create</h3>
       <input type="text" id="create-alias" placeholder="Credential Alias (optional)"/>
@@ -79,6 +79,11 @@
     <div>
       <h3>Errors</h3>
       <textarea id="res-err" rows="10" cols="80" disabled></textarea>
+    </div>
+
+    <div>
+      <h3>Diagnostics <button id="diag-copy">Copy to Clipboard</button></h3>
+      <textarea id="diagnostics" rows="30" cols="80" disabled></textarea>
     </div>
 
     <script type="module" src="/index.b.js"></script>
