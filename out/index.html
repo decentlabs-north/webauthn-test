@@ -13,12 +13,16 @@
     <h1><code>Webauthn Testbench v1.4</code></h1>
     <p><a href="https://github.com/decentlabs-north/webauthn-test">Source Code</a></p>
     <h3>Create</h3>
+      <input type="text" id="create-alias" placeholder="Credential Alias (optional)"/>
+    </div>
+    <br />
+    <br />
     <button id="btn-create">Create Credential</button>
     <h6>Outputs</h6>
     <div>
       <h5>CredentialIdentifier</h5>
       <textarea id="res-create" rows="3" cols="80"></textarea>
-      <h5>DER PublicKey</h5>
+      <h5>PublicKey (compressed)</h5>
       <textarea id="res-create-pk" rows="3" cols="80" disabled></textarea>
       <h5>AuthenticatorData 1</h5>
       <textarea id="res-create-auth" rows="3" cols="80" disabled></textarea>
@@ -29,7 +33,7 @@
     <h3>Sign</h3>
     <h6>Inputs</h6>
     <div>
-      <h5><code></code></h5>
+      <h5>Message</h5>
       <textarea id="text-hash" rows="5" cols="80"></textarea>
     </div>
     <button id="btn-sign">Sign using CredentialIdentifier</button>
@@ -52,28 +56,31 @@
     </div>
     <div>
       <h5>Recovered Public Key</h5>
-      <textarea id="res-sign-pk" rows="5" cols="80" disabled></textarea>
+      <textarea id="res-sign-pk" rows="7" cols="80" disabled></textarea>
     </div>
     <hr />
-    <h3><a href="https://w3c.github.io/webauthn/#prf-extension">prf-extension</a></h3>
-    <div>
-      <button id="btn-prf-create">Create</button> <button id="btn-prf-get">Get</button>
-    </div>
-    <h6>Outputs</h6>
-    <div>
-      <h5>Seed</h5>
-      <textarea id="res-prf-value" rows="5" cols="80" disabled></textarea>
-      <h5>Secret</h5>
-      <textarea id="res-prf-sk" rows="5" cols="80" disabled></textarea>
-      <h5>Public</h5>
-      <textarea id="res-prf-pk" rows="5" cols="80" disabled></textarea>
-    </div>
-    <hr />
+    <details>
+      <summary>PRF-extension test</summary>
+      <a href="https://w3c.github.io/webauthn/#prf-extension">W3C Specification</a>
+      <div>
+        <button id="btn-prf-create">Create</button><button id="btn-prf-get">Get</button>
+      </div>
+      <h6>Outputs</h6>
+      <div>
+        <h5>Seed</h5>
+        <textarea id="res-prf-value" rows="5" cols="80" disabled></textarea>
+        <h5>Secret</h5>
+        <textarea id="res-prf-sk" rows="5" cols="80" disabled></textarea>
+        <h5>Public</h5>
+        <textarea id="res-prf-pk" rows="5" cols="80" disabled></textarea>
+      </div>
+      <hr />
+    </details>
     <div>
       <h3>Errors</h3>
       <textarea id="res-err" rows="10" cols="80" disabled></textarea>
     </div>
 
-    <script type="text/javascript" src="/index.b.js"></script>
+    <script type="module" src="/index.b.js"></script>
   </body>
 </html>

@@ -1,5 +1,7 @@
+/** This is a testbench with hacky but functional code */
 // import { decode } from 'cborg'
 import { p256 } from '@noble/curves/p256'
+import 'https://unpkg.com/ua-parser-js@1.0.35/src/ua-parser.js'
 const RPID = window.location.hostname
 // Ensure https unless localhost / fix surge annoyance on mobile
 if (RPID !== 'localhost' && window.location.protocol === 'http:') {
@@ -32,7 +34,7 @@ async function create () {
         rp: { id: RPID, name: "Xorcery Inc." },
         user: {
           id: random(32),
-          name: "ceramicuser",
+          name: document.getElementById('create-alias').value || 'ceramicuser',
           displayName: "Ceramic User"
         },
         pubKeyCredParams: [
@@ -48,7 +50,7 @@ async function create () {
 
     window.createRes = cred
     console.log("create()", cred)
-    document.getElementById("res-create").value = cred.id
+    document.getElementById("res-create").value = toHex(cred.rawId)
     /* Skipping DER-encoded public-key
     document.getElementById("res-create-pk").value =
       typeof cred.response.getPublicKey === "function"
@@ -61,7 +63,8 @@ async function create () {
       ? cred.response.getAuthenticatorData()
       : cred.response.authenticatorData
     document.getElementById("res-create-auth").value = toHex(authData)
-    document.getElementById("res-create-pk").value = toHex(decodeAuthenticatorData(authData).pk)
+    const { publicKey } = decodeAuthenticatorData(authData) // TODO: hex not base64
+    document.getElementById("res-create-pk").value = toHex(publicKey)
   } catch (err) {
     console.error("create(FAILED)", err)
     setError(err)
@@ -106,12 +109,24 @@ async function sign(discoverable = false) {
     document.getElementById("res-sign-sig").value = toHex(signature)
     document.getElementById("res-sign-auth").value = toHex(authenticatorData)
     document.getElementById('res-sign-cid').value = toHex(credentialId)
-    document.getElementById("res-sign-pk").value = recoverPublicKey(
+    const recovered = recoverPublicKey(
       signature,
       authenticatorData,
       clientDataJSON,
       credentialId
     )
+    const { pk0, pk1, ml0, ml1, publicKey } = recovered
+    document.getElementById("res-sign-pk").value = bq`
+      PK0 ${toHex(pk0)}
+      PK1 ${toHex(pk1)}
+      Overlaps: ${ml0} <=> ${ml1}
+
+      Recovered Key:
+          ${toHex(publicKey)}
+    `
+    window.diag ||= {}
+    window.diag.ua = new UAParser().getResult()
+    window.diag.recovered = recovered // TODO: to hex
   } catch (err) {
     console.error("sign(FAILED)", err)
     setError(err)
@@ -211,7 +226,7 @@ function hash (m) { return p256.CURVE.hash(au8(m)) }
 
 function recoverPublicKey(signature, authenticatorData, clientDataJSON, credentialId) {
   // printa båda x1 och x2 (se skillnad på recovered nycklar)
-  // korellatera mx2 och mx2 (recovera från msg1 och msg2 se om recovered är samma)
+  // korellatera mx1 och mx2 (recovera från msg1 och msg2 se om recovered är samma)
   // const recoveryBit = 0 // p256.ProjectivePoint.fromHex(publicKey).hasEvenY() ? 0 : 1
   const msg = concat([authenticatorData, hash(clientDataJSON)])
   const msgHash =  hash(msg)
@@ -225,11 +240,23 @@ function recoverPublicKey(signature, authenticatorData, clientDataJSON, credenti
     .addRecoveryBit(1)
     .recoverPublicKey(msgHash)
     .toRawBytes(true)
+  const ml0 = nOverlap(pk0.slice(1), credentialId)
+  const ml1 = nOverlap(pk1.slice(1), credentialId)
+  if (ml0 === ml1) throw new Error('Key from CID Recovery Failed')
+  const publicKey = ml0 < ml1 ? pk0 : pk1
+  return { pk0, pk1, ml0, ml1, publicKey }
+}
 
-  return bq`
-    PK0 ${toHex(pk0)}
-    PK1 ${toHex(pk1)}
-  `
+/**
+ * @param {Uint8Array} a
+ * @param {Uint8Array} b
+ * @returns {number}
+ */
+function nOverlap (a, b) {
+  a = au8(a)
+  b = au8(b)
+  const m = Math.max(a.length, b.length)
+  for (let i = 0; i < m; i++) if (a[i] !== b[i]) return i
 }
 
 /**
@@ -259,4 +286,93 @@ const au8 = o => {
   if (o instanceof ArrayBuffer) return new Uint8Array(o)
   if (o instanceof Uint8Array) return o
   throw new Error('Uint8Array expected')
+}
+
+
+// -- Borrowed from js-did/packages/key-webauthn/src/index.ts
+/**
+ * Extracts PublicKey from AuthenticatorData as received from hardware key.
+ *
+ * See box `CREDENTIAL PUBLIC KEY` in picture:
+ * https://w3c.github.io/webauthn/images/fido-attestation-structures.svg
+ * @param {Uint8Array|ArrayBuffer} attestationObject As given by credentials.create().response.attestationObject
+ */
+function decodeAuthenticatorData (authData) {
+  authData = au8(authData)
+  // https://w3c.github.io/webauthn/#sctn-authenticator-data
+  if (authData.length < 37) throw new Error('AuthenticatorDataTooShort')
+  let o = 0
+  const rpidHash = authData.slice(o, o += 32) // SHA-256 hash of rp.id
+
+  const flags = authData[o++]
+  // console.debug(`Flags: 0b` + flags.toString(2).padStart(8, '0'))
+  if (!(flags & (1 << 6))) throw new Error('AuthenticatorData has no Key')
+
+  const view = new DataView(authData.buffer)
+  const signCounter = view.getUint32(o); o += 4
+
+  // https://w3c.github.io/webauthn/#sctn-attested-credential-data
+  const aaguid = authData.slice(o, o += 16)
+  const clen = view.getUint16(o); o += 2
+  const credentialId = authData.slice(o, o += clen)
+
+  // https://datatracker.ietf.org/doc/html/rfc9052#section-7
+  // const publicKey = decode(authData.slice(o)) // cborg.decode fails; Refuses to decode COSE use of numerical keys
+  const cose = decodeCBORHack(authData.slice(o)) // Decode cbor manually
+
+  // Section 'COSE Key Type Parameters'
+  // https://www.iana.org/assignments/cose/cose.xhtml
+  if (cose[1] !== 2) throw new Error('Expected EC Coordinate pair')
+  if (cose[3] !== -7) throw new Error('Expected ES256 Algorithm')
+  const x = cose[-2]
+  const y = cose[-3]
+  if (!(x instanceof Uint8Array) || !(y instanceof Uint8Array)) throw new Error('Expected X and Y coordinate to be buffers')
+  const publicKey = new Uint8Array(x.length + 1)
+  publicKey[0] = 2 + (y[y.length - 1] & 1)
+  publicKey.set(x, 1)
+  return {
+    rpidHash,
+    flags,
+    signCounter,
+    aaguid,
+    credentialId,
+    publicKey,
+    cose
+  }
+}
+
+/**
+ * Tiny unsafe CBOR decoder that supports COSE_key numerical keys
+ * https://www.iana.org/assignments/cose/cose.xhtml
+ * Section 'COSE Key Type Parameters'
+ * @param {Uint8Array} buf
+ */
+function decodeCBORHack (buf) {
+  if (!(buf instanceof Uint8Array)) throw new Error('Uint8ArrayExpected')
+  const view = new DataView(buf.buffer)
+  let o = 0
+  const readByte = () => buf[o++]
+  const readU8 = () => view.getUint8(o++) // @ts-ignore
+  const readU16 = () => view.getUint16(o, undefined, o += 2) // @ts-ignore
+  const readU32 = () => view.getUint16(o, undefined, o += 4) // @ts-ignore
+  const readU64 = () => view.getBigUint64(o, undefined, o += 8) // @ts-ignore
+  const readLength = l => l < 24 ? l : [readU8, readU16, readU32, readU64][l - 24]() // @ts-ignore
+  const readMap = l => {
+    const map = {} // @ts-ignore
+    for (let i = 0; i < l; i++) map[readItem()] = readItem()
+    return map
+  } // @ts-ignore
+  const readBuffer = l => buf.slice(o, o += l)
+  function readItem () {
+    const b = readByte()
+    const l = readLength(b & 0x1f)
+    switch (b >> 5) {
+      case 0: return l // Uint
+      case 1: return -(l + 1) // Negative integer
+      case 2: return readBuffer(l) // binstr
+      case 5: return readMap(l)
+      default: throw new Error('UnsupportedType' + (b >> 5))
+    }
+  }
+  return readItem()
 }
