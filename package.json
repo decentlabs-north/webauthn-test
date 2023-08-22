@@ -16,6 +16,7 @@
   },
   "devDependencies": {
     "esbuild": "^0.18.4",
+    "standard": "^17.1.0",
     "surge": "^0.23.1"
   }
 }

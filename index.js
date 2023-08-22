@@ -8,49 +8,49 @@ if (RPID !== 'localhost' && window.location.protocol === 'http:') {
   window.localhost = window.location.toString().replace('http:', 'https:')
 }
 
-document.getElementById("btn-create").addEventListener("click", create)
+document.getElementById('btn-create').addEventListener('click', create)
 document
-  .getElementById("btn-sign")
-  .addEventListener("click", () => sign(false))
+  .getElementById('btn-sign')
+  .addEventListener('click', () => sign(false))
 document
-  .getElementById("btn-sign-disco")
-  .addEventListener("click", () => sign(true))
+  .getElementById('btn-sign-disco')
+  .addEventListener('click', () => sign(true))
 document.getElementById('btn-prf-create')
   .addEventListener('click', () => testPRF(true))
 document.getElementById('btn-prf-get')
   .addEventListener('click', () => testPRF(false))
 
 function setError (err) {
-  document.getElementById("res-err").value = err.toString() + '\n' + err.stack
-  scrollTo(0, document.body.getBoundingClientRect().height)
+  document.getElementById('res-err').value = err.toString() + '\n' + err.stack
+  window.scrollTo(0, document.body.getBoundingClientRect().height)
 }
 
 async function create () {
-  console.log("CreateKey", RPID)
+  console.log('CreateKey', RPID)
   try {
     const cred = await navigator.credentials.create({
       publicKey: {
         challenge: random(32),
-        rp: { id: RPID, name: "Xorcery Inc." },
+        rp: { id: RPID, name: 'Xorcery Inc.' },
         user: {
           id: random(32),
           name: document.getElementById('create-alias').value || 'testbench',
-          displayName: "testbench"
+          displayName: 'testbench'
         },
         pubKeyCredParams: [
-          { type: "public-key", alg: -7 }, // ECDSA with SHA-256
+          { type: 'public-key', alg: -7 } // ECDSA with SHA-256
         ],
         authenticatorSelection: {
-          residentKey: "required",
-          userVerification: "required",
-          requireResidentKey: true,
+          residentKey: 'preferred', // 'required': SK must be stored on authenticator
+          userVerification: 'discouraged', // 'required', // Require PIN-code?
+          requireResidentKey: true
         }
       }
     })
 
     window.createRes = cred
-    console.log("create()", cred)
-    document.getElementById("res-create").value = toHex(cred.rawId)
+    console.log('create()', cred)
+    document.getElementById('res-create').value = toHex(cred.rawId)
     /* Skipping DER-encoded public-key
     document.getElementById("res-create-pk").value =
       typeof cred.response.getPublicKey === "function"
@@ -58,35 +58,35 @@ async function create () {
       : "response.getPublicKey() not available"
     */
 
-    document.getElementById("res-create-att").value = toHex(cred.response.attestationObject)
+    document.getElementById('res-create-att').value = toHex(cred.response.attestationObject)
     debugger
     const authData = typeof cred.response.getAuthenticatorData === 'function'
       ? cred.response.getAuthenticatorData()
       : cred.response.authenticatorData // Does not exist on FF; (use CBOR.decode(response.attestationObject))
 
-    document.getElementById("res-create-auth").value = toHex(authData)
+    document.getElementById('res-create-auth').value = toHex(authData)
     const { publicKey } = decodeAuthenticatorData(authData) // TODO: hex not base64
-    document.getElementById("res-create-pk").value = toHex(publicKey)
+    document.getElementById('res-create-pk').value = toHex(publicKey)
   } catch (err) {
-    console.error("create(FAILED)", err)
+    console.error('create(FAILED)', err)
     setError(err)
   }
   // document.getElementById('res-pk').value = cred.response.
 }
 
-async function sign(discoverable = false) {
+async function sign (discoverable = false) {
   try {
-    const textPayload = document.getElementById("text-hash")
+    const textPayload = document.getElementById('text-hash')
     if (!textPayload.value.length) {
       const dummy32 = '000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f'
-      textPayload.value =  dummy32
+      textPayload.value = dummy32
     }
     const hashOfCapability = fromHex(textPayload.value)
     const allowCredentials = []
 
     if (!discoverable) {
-      const id = fromHex(document.getElementById("res-create").value)
-      allowCredentials.push({ type: "public-key", id })
+      const id = fromHex(document.getElementById('res-create').value)
+      allowCredentials.push({ type: 'public-key', id })
     }
     /** @type {PublicKeyCredential} */
     const res = await navigator.credentials.get({
@@ -107,9 +107,9 @@ async function sign(discoverable = false) {
     const authenticatorData = typeof res.response.getAuthenticatorData === 'function'
       ? res.response.getAuthenticatorData()
       : res.response.authenticatorData
-    document.getElementById("res-sign-client").value = toHex(clientDataJSON)
-    document.getElementById("res-sign-sig").value = toHex(signature)
-    document.getElementById("res-sign-auth").value = toHex(authenticatorData)
+    document.getElementById('res-sign-client').value = toHex(clientDataJSON)
+    document.getElementById('res-sign-sig').value = toHex(signature)
+    document.getElementById('res-sign-auth').value = toHex(authenticatorData)
     document.getElementById('res-sign-cid').value = toHex(credentialId)
     const recovered = recoverPublicKey(
       signature,
@@ -118,7 +118,7 @@ async function sign(discoverable = false) {
       credentialId
     )
     const { pk0, pk1, ml0, ml1, publicKey } = recovered
-    document.getElementById("res-sign-pk").value = bq`
+    document.getElementById('res-sign-pk').value = bq`
       PK0 ${toHex(pk0)}
       PK1 ${toHex(pk1)}
       Overlaps: ${ml0} <=> ${ml1}
@@ -130,7 +130,7 @@ async function sign(discoverable = false) {
     window.diag.ua = new UAParser().getResult()
     window.diag.recovered = recovered // TODO: to hex
   } catch (err) {
-    console.error("sign(FAILED)", err)
+    console.error('sign(FAILED)', err)
     setError(err)
   }
 }
@@ -154,20 +154,20 @@ async function testPRF (create = true) {
     let res
     if (create) {
       Object.assign(clientData.publicKey, {
-        rp: { id: RPID, name: "Xorcery Inc." },
+        rp: { id: RPID, name: 'Xorcery Inc.' },
         user: {
           id: hash('prf-demo'),
           name: 'prf-demo',
           displayName: 'WebauthnPRF Test'
         },
         pubKeyCredParams: [
-          { type: "public-key", alg: -7 }, // ECDSA with SHA-256
+          { type: 'public-key', alg: -7 } // ECDSA with SHA-256
         ],
         attestation: 'none', // ??? why?
         authenticatorSelection: {
           residentKey: 'required',
           userVerification: 'required',
-          requireResidentKey: true, // Obsolete, superseeded by 'residentKey'
+          requireResidentKey: true // Obsolete, superseeded by 'residentKey'
         }
       })
       clientData.publicKey.extensions.credProps ||= true // ---
@@ -187,7 +187,7 @@ async function testPRF (create = true) {
     document.getElementById('res-prf-value').value = JSON.stringify(extRes, null, 2)
     if (!extRes.prf?.results) throw new Error('PRF-extension not supported')
   } catch (err) {
-    console.error("ext-prf(FAILED)", err)
+    console.error('ext-prf(FAILED)', err)
     setError(err)
   }
 }
@@ -202,7 +202,7 @@ function toHex (arr) {
   return buf
 }
 /** @param {string} str */
-function fromHex(str) {
+function fromHex (str) {
   str = str.toLowerCase()
   const b = new Uint8Array(str.length >> 1)
   for (let i = 0; i < str.length >> 1; i++) b[i] = h2bLUT[str.slice(i * 2, i * 2 + 2)]
@@ -219,7 +219,7 @@ async function hash (m) { // SHA256
   return new Uint8Array(await crypto.subtle.digest('SHA-256', m))
 } */
 
-function random(n) {
+function random (n) {
   const b = new Uint8Array(n)
   crypto.getRandomValues(b)
   return b
@@ -227,12 +227,12 @@ function random(n) {
 
 function hash (m) { return p256.CURVE.hash(au8(m)) }
 
-function recoverPublicKey(signature, authenticatorData, clientDataJSON, credentialId) {
+function recoverPublicKey (signature, authenticatorData, clientDataJSON, credentialId) {
   // printa båda x1 och x2 (se skillnad på recovered nycklar)
   // korellatera mx1 och mx2 (recovera från msg1 och msg2 se om recovered är samma)
   // const recoveryBit = 0 // p256.ProjectivePoint.fromHex(publicKey).hasEvenY() ? 0 : 1
   const msg = concat([authenticatorData, hash(clientDataJSON)])
-  const msgHash =  hash(msg)
+  const msgHash = hash(msg)
   signature = au8(signature) // normalize to u8
   const pk0 = p256.Signature.fromDER(signature)
     .addRecoveryBit(0)
@@ -290,7 +290,6 @@ const au8 = o => {
   if (o instanceof Uint8Array) return o
   throw new Error('Uint8Array expected')
 }
-
 
 // -- Borrowed from js-did/packages/key-webauthn/src/index.ts
 /**
