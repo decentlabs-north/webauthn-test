@@ -266,15 +266,15 @@ function recoverPublicKey (signature, authenticatorData, clientDataJSON, credent
   const msgHash = hash(msg)
   signature = au8(signature) // normalize to u8
   setDiag({ recover: { signature, authenticatorData, clientDataJSON, credentialId } })
-  const pk0 = p256.Signature.fromDER(signature)
+  const ppk0 = p256.Signature.fromDER(signature)
     .addRecoveryBit(0)
     .recoverPublicKey(msgHash)
-    .toRawBytes(true)
 
-  const pk1 = p256.Signature.fromDER(signature)
+  const ppk1 = p256.Signature.fromDER(signature)
     .addRecoveryBit(1)
     .recoverPublicKey(msgHash)
-    .toRawBytes(true)
+  const pk0 = ppk0.toRawBytes(true)
+  const pk1 = ppk1.toRawBytes(true)
 
   setDiag({ recover: { pk0, pk1 } })
   const ml0 = nOverlap(pk0.slice(1), credentialId)
