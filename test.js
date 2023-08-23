@@ -1,5 +1,5 @@
 import { p256 } from '@noble/curves/p256'
-import { hash as b3hash } from 'blake3'
+import { hash as blake3 } from 'blake3'
 const DBG = true
 
 const S = {
@@ -9,9 +9,12 @@ const S = {
 }
 
 for (let n = 0; n < 0xf; n++) {
+  // Generate Identity
   const secret = p256.utils.randomPrivateKey()
   const pk = p256.getPublicKey(secret)
-  const hint = checksum(pk)
+  const ppk = p256.ProjectivePoint.fromHex(pk)
+  const hint = genHint(ppk)
+  S.spread[hint]++
   for (let m = 0; m < 0xff; m++) {
     const msgHash = p256.CURVE.randomBytes(32)
     const sig = p256.sign(msgHash, secret).toDERRawBytes() // as recevied by webauthn
@@ -23,15 +26,15 @@ for (let n = 0; n < 0xf; n++) {
       .addRecoveryBit(1)
       .recoverPublicKey(msgHash)
     const pk1 = ppk1.toRawBytes(true)
-    const [c0, c1] = [checksum(pk0), checksum(pk1)]
-    S.spread[c0]++
-    S.spread[c1]++
+
+    const [c0, c1] = [genHint(ppk0), genHint(ppk1)]
+    S.spread[eql(pk, pk0) ? c1 : c0]++
     if (c0 === c1) S.falsePositives++
     if (DBG) {
       console.log(`\n== ${S.iterations} falsePositives: ${S.falsePositives} ~ ${((S.falsePositives / S.iterations) * 100).toFixed(4)}%`)
       console.log('Expected', hint, toHex(pk))
-      console.log('PK0', eql(pk, pk0), checksum(pk0), toHex(pk0))
-      console.log('PK1', eql(pk, pk1), checksum(pk1), toHex(pk1))
+      console.log('PK0', eql(pk, pk0), c0, toHex(pk0))
+      console.log('PK1', eql(pk, pk1), c1, toHex(pk1))
       debugger
     }
     S.iterations++
@@ -40,18 +43,21 @@ for (let n = 0; n < 0xf; n++) {
 console.log(`\n\nFINAL RESULTS\n== ${S.iterations} falsePositives: ${S.falsePositives} ~ ${((S.falsePositives / S.iterations) * 100).toFixed(4)}%`)
 console.log(S)
 
-function checksum (key) {
-  // 2bit: Y + X parity
-  return ((key[0] & 1) << 1) | (key[key.length - 1] & 1)
+function genHint (point) {
+  const key = point.toRawBytes(true)
+  switch (3) {
+    case 0: // 2bit: Y + X parity (~25% Collisions)
+      return ((key[0] & 1) << 1) | (key[key.length - 1] & 1)
 
-  // X-parity check (~50%)
-  // return key[key.length - 1] & 1
+    case 1: // 1bit X-parity check (~50%)
+      return key[key.length - 1] & 1
 
-  // 8bit Blake3 (~0.36%)
-  // return b3hash(key, { length: 1 })[0]
+    case 2: // 8bit Blake3 (~0.36%)
+      return blake3(key, { length: 1 })[0]
 
-  // XOR-chunk256 (~0.33%)
-  // return key.reduce((s, b) => s ^ b, 0b10101010)
+    case 3: // 8bit XOR-chunk (~0.33%)
+      return key.slice(1).reduce((s, b) => s ^ b, key[0] & 1 ? 0b10101010 : 0b01010101)
+  }
 }
 
 function toHex (u8) { return Buffer.from(u8).hexSlice() }
